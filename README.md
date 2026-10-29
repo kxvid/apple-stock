@@ -6,7 +6,7 @@ It was built for the iPhone Duo on apple.com/ca and works for every iPhone, iPad
 
 ## How it works
 
-After each check, the monitor waits for the configured interval (30 seconds by default, with jitter and a 30-second floor), then:
+The monitor starts a scan every 30 seconds by default. Each scan:
 
 1. **Opens the product page** in a hidden Chrome browser, e.g. `apple.com/ca/shop/buy-iphone/iphone-duo`. The page lists every model with its part number, colour, storage and price, and the UI is built from that list.
 2. **Asks Apple's stock API** (`/shop/fulfillment-messages`), the same one the Apple Store website uses, about each model near your postal code:
@@ -53,7 +53,7 @@ You can also skip the UI and set `PRODUCT=buy-vision/apple-vision-pro` in `.env`
 
 ## Run it at home (recommended)
 
-A computer that stays awake and connected is the best free option. The browser session stays warm between checks. The default delay is about 30 seconds after the previous check finishes; Apple page loads, network retries, and computer sleep can increase detection time. Near-instant checkout is not a guaranteed stock reservation.
+A computer that stays awake and connected is the best free option. The browser session stays warm between checks. Scans follow a fixed 30-second cadence measured from the previous scan’s start. If an Apple page load or network retry takes longer, the monitor skips missed slots and never overlaps scans. Computer sleep pauses monitoring; it resumes when the computer wakes. Near-instant checkout is not a guaranteed stock reservation.
 
 ```sh
 git clone https://github.com/kxvid/apple-stock && cd apple-stock
@@ -104,7 +104,7 @@ The workflow is scheduled every 5 minutes, but GitHub often starts scheduled run
 | `PRODUCT` | `iphone-duo` | Store page path, e.g. `buy-iphone/iphone-17`, `buy-ipad/ipad-air`, `buy-mac/macbook-air`, `buy-airpods/airpods-pro-3` (a bare slug means `buy-iphone/<slug>`) |
 | `MODELS` | `all` | Comma-separated part numbers or words that must all appear in the model name, e.g. `256GB Night Sky, 512GB` |
 | `MAX_DISTANCE_KM` | `50` | Ignore stores farther than this |
-| `INTERVAL_SECONDS` | `30` | Delay after a completed check (±15% jitter, never below 30 seconds) |
+| `INTERVAL_SECONDS` | `30` | Fixed scan-start interval (minimum 30 seconds); slow scans skip missed slots |
 | `STATE_FILE` | `.state.json` | Where the last seen availability is stored |
 | `HEADLESS` | `true` | Set to `false` to watch the browser |
 | `HOST` | `127.0.0.1` | Address the local UI listens on |

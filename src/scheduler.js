@@ -1,10 +1,10 @@
 // One check at a time; requests received during a check coalesce into one follow-up.
 export class CheckScheduler {
-  constructor({ check, intervalSeconds = 30, onError = () => {}, random = Math.random,
+  constructor({ check, intervalSeconds = 30, onError = () => {},
     setTimer = setTimeout, clearTimer = clearTimeout, now = Date.now }) {
     this.check = check;
     this.intervalSeconds = Number.isFinite(Number(intervalSeconds)) ? Math.max(30, Number(intervalSeconds)) : 30;
-    Object.assign(this, { onError, random, setTimer, clearTimer, now });
+    Object.assign(this, { onError, setTimer, clearTimer, now });
     this.running = false;
     this.pending = false;
     this.stopped = false;
@@ -33,13 +33,20 @@ export class CheckScheduler {
     this.timer = null;
     this.nextCheckAt = null;
     this.running = true;
+    const startedAt = this.now();
     try {
       await this.check();
     } catch (error) {
       this.onError(error);
     } finally {
       this.running = false;
-      const delay = this.pending ? 0 : Math.max(30_000, this.intervalSeconds * 1000 * (0.85 + this.random() * 0.3));
+      const intervalMs = this.intervalSeconds * 1000;
+      // Keep start-to-start cadence; skip slots missed by a slow check instead
+      // of overlapping checks or replaying a backlog. Manual requests can run
+      // once immediately afterward and establish a new cadence.
+      const elapsed = this.now() - startedAt;
+      const nextSlot = startedAt + Math.max(1, Math.ceil(elapsed / intervalMs)) * intervalMs;
+      const delay = this.pending ? 0 : Math.max(0, nextSlot - this.now());
       this.pending = false;
       this.schedule(delay);
     }
