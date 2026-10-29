@@ -2,6 +2,7 @@ import { Checker } from './checker.js';
 import { configuredNotifiers, notifyAll } from './notify.js';
 import { PushStore } from './push.js';
 import { startServer } from './server.js';
+import { CheckScheduler } from './scheduler.js';
 
 const args = new Set(process.argv.slice(2));
 const env = process.env;
@@ -21,7 +22,8 @@ async function main() {
       throw new Error('No notifier configured; turn on notifications in the UI or set RESEND_API_KEY+EMAIL_TO, NTFY_TOPIC or DISCORD_WEBHOOK_URL');
     }
     const ok = await notifyAll(notifiers, { subject: 'apple-stock test notification', text: 'Notifications are working.' }, log);
-    process.exit(ok ? 0 : 1);
+    process.exitCode = ok ? 0 : 1;
+    return;
   }
 
   const once = args.has('--once');
@@ -34,46 +36,69 @@ async function main() {
     log,
     push,
   });
-  await checker.init();
-  if (checker.notifiers().length === 0) log('no notifier yet: turn on notifications in the UI or configure one in .env');
-
   if (once) {
-    await checker.check();
-    await checker.close();
-    if (checker.error) process.exit(1);
+    try {
+      await checker.init();
+      await checker.check();
+      if (checker.error) process.exitCode = 1;
+    } finally {
+      await checker.close();
+    }
     return;
   }
 
-  const intervalMs = Math.max(30, Number(env.INTERVAL_SECONDS || 30)) * 1000;
-  let timer;
-  const schedule = (delay) => {
-    clearTimeout(timer);
-    timer = setTimeout(async () => {
-      await checker.check();
-      schedule(intervalMs * (0.85 + Math.random() * 0.3));
-    }, delay);
+  let initializing = true;
+  let server;
+  const scheduler = new CheckScheduler({
+    check: () => checker.check(),
+    intervalSeconds: env.INTERVAL_SECONDS || 30,
+    onError: (error) => { checker.error = error.message; log(`check failed: ${error.message}`); },
+  });
+  let shuttingDown = false;
+  const shutdown = async (code = 0) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    scheduler.stop();
+    // A stalled upstream request must not keep the local service alive after stop.
+    const forcedExit = setTimeout(() => { server?.closeAllConnections(); process.exit(code); }, 5000);
+    forcedExit.unref();
+    const closed = server ? new Promise((resolve) => server.close(resolve)) : Promise.resolve();
+    server?.closeIdleConnections();
+    await checker.close().catch(() => {});
+    await closed;
+    clearTimeout(forcedExit);
+    process.exit(code);
   };
+  process.on('SIGINT', () => shutdown());
+  process.on('SIGTERM', () => shutdown());
 
+  // The dashboard is immediately reachable while Apple's catalog is loading.
   if (!args.has('--no-ui')) {
-    startServer(checker, {
+    server = startServer(checker, {
       host: env.HOST || '127.0.0.1',
       port: Number(env.PORT || 4321),
       log,
-      onSettingsChanged: () => schedule(0),
+      allowedHosts: (env.ALLOWED_HOSTS || '').split(',').map((host) => host.trim()).filter(Boolean),
+      runtime: () => ({ initializing, intervalSeconds: scheduler.intervalSeconds, nextCheckAt: scheduler.nextCheckAt }),
+      onSettingsChanged: () => scheduler.requestCheck(),
+    });
+    server.on('error', (error) => {
+      log(`server failed: ${error.message}`);
+      void shutdown(1);
     });
   }
-  schedule(0);
-
-  const shutdown = async () => {
-    clearTimeout(timer);
-    await checker.close().catch(() => {});
-    process.exit(0);
-  };
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  try {
+    await checker.init();
+    initializing = false;
+    if (checker.notifiers().length === 0) log('no notifier yet: turn on notifications in the UI or configure one in .env');
+    scheduler.requestCheck();
+  } catch (error) {
+    log(`startup failed: ${error.message}`);
+    await shutdown(1);
+  }
 }
 
 main().catch((err) => {
   console.error(err.message);
-  process.exit(1);
+  process.exitCode = 1;
 });

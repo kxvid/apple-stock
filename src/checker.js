@@ -3,11 +3,12 @@ import { AppleStore, COUNTRIES, normalizeCountry, normalizeProduct, productName 
 import { availabilityKeys, parseCatalog, parseFulfillment, parseProducts, selectProducts, shortPickupQuote } from './parse.js';
 import { configuredNotifiers, notifyAll } from './notify.js';
 import { loadState, saveState } from './state.js';
+import { checkoutSummary, purchaseLinks } from './checkout.js';
 
 const SETTING_KEYS = ['country', 'product', 'model', 'filters', 'postalCode', 'maxDistanceKm', 'emailTo', 'ntfyTopic'];
 
 export function defaultSettings(env) {
-  return {
+  return validateSettings({
     country: normalizeCountry(env.COUNTRY || 'ca'),
     product: normalizeProduct(env.PRODUCT || 'iphone-duo'),
     model: env.MODELS || 'all',
@@ -16,7 +17,7 @@ export function defaultSettings(env) {
     maxDistanceKm: Number(env.MAX_DISTANCE_KM || 50),
     emailTo: env.EMAIL_TO || '',
     ntfyTopic: env.NTFY_TOPIC || '',
-  };
+  });
 }
 
 export function normalizeTopic(value) {
@@ -36,11 +37,13 @@ export function postalCodeFits(code, country) {
 }
 
 function stringList(value) {
-  return Array.isArray(value) ? value.filter((v) => typeof v === 'string').slice(0, 20) : [];
+  if (!Array.isArray(value) || value.some((v) => typeof v !== 'string')) throw new Error('filter values must be lists of strings');
+  return value.slice(0, 20);
 }
 
 function normalizeFilters(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('filters must be an object');
+  if (Object.keys(value).some((key) => !/^dimension\w{1,40}$/.test(key))) throw new Error('invalid filter dimension');
   return Object.fromEntries(
     Object.entries(value)
       .filter(([k]) => /^dimension\w{1,40}$/.test(k))
@@ -50,16 +53,39 @@ function normalizeFilters(value) {
   );
 }
 
+function validateSettings(settings) {
+  const next = { ...settings };
+  next.country = normalizeCountry(next.country);
+  next.product = normalizeProduct(next.product);
+  if (typeof next.postalCode !== 'string') throw new Error('postal code must be text');
+  next.postalCode = normalizePostalCode(next.postalCode);
+  if (!['number', 'string'].includes(typeof next.maxDistanceKm) || String(next.maxDistanceKm).trim() === '') {
+    throw new Error('search distance must be greater than 0 and at most 1000 km');
+  }
+  next.maxDistanceKm = Number(next.maxDistanceKm);
+  if (!Number.isFinite(next.maxDistanceKm) || next.maxDistanceKm <= 0 || next.maxDistanceKm > 1000) {
+    throw new Error('search distance must be greater than 0 and at most 1000 km');
+  }
+  if (typeof next.model !== 'string') throw new Error('model filter must be text');
+  next.model = next.model.slice(0, 2000);
+  if (typeof next.emailTo !== 'string') throw new Error('email recipients must be text');
+  next.emailTo = next.emailTo.trim();
+  next.ntfyTopic = normalizeTopic(next.ntfyTopic);
+  next.filters = normalizeFilters(next.filters);
+  return next;
+}
+
 export function matchesFilters(model, filters = {}) {
-  return Object.entries(filters).every(([dim, wanted]) => !wanted.length || !(dim in model.dims) || wanted.includes(model.dims[dim]));
+  return Object.entries(filters).every(([dim, wanted]) => !wanted.length || wanted.includes(model.dims?.[dim]));
 }
 
 export function filterVariants(products, variants, filters) {
-  if (!variants) return products;
+  const hasFilters = Object.values(filters ?? {}).some((values) => values.length);
+  if (!variants) return hasFilters ? [] : products;
   const byPart = new Map(variants.models.map((m) => [m.partNumber, m]));
   return products.filter((p) => {
     const v = byPart.get(p.partNumber);
-    return !v || matchesFilters(v, filters);
+    return v ? matchesFilters(v, filters) : !hasFilters;
   });
 }
 
@@ -95,6 +121,8 @@ export class Checker {
     this.variants = null;
     this.productImages = {};
     this.models = [];
+    this.availability = { pickup: [], delivery: [] };
+    this.purchaseLinks = {};
     this.lastChecked = null;
     this.error = null;
     this.checking = null;
@@ -105,10 +133,9 @@ export class Checker {
     if (this.settingsFile) {
       try {
         const saved = pick(JSON.parse(await readFile(this.settingsFile, 'utf8')));
-        Object.assign(this.settings, saved, {
-          country: normalizeCountry(saved.country ?? this.settings.country),
-          product: normalizeProduct(saved.product ?? this.settings.product),
-        });
+        // Validate before assigning so one corrupt field cannot partially replace
+        // the working defaults or make every /api/state request fail.
+        this.settings = validateSettings({ ...this.settings, ...saved });
       } catch (err) {
         if (err.code !== 'ENOENT') this.log(`ignoring ${this.settingsFile}: ${err.message}`);
       }
@@ -132,8 +159,13 @@ export class Checker {
       return null;
     });
     const variants = html ? parseCatalog(html) : null;
-    if (!variants) return;
+    if (!variants) {
+      this.variants = null;
+      this.purchaseLinks = {};
+      return;
+    }
     this.variants = variants;
+    this.purchaseLinks = purchaseLinks(html, this.store.productUrl);
     Object.assign(this.productImages, variants.productImages);
   }
 
@@ -154,14 +186,7 @@ export class Checker {
   }
 
   async applySettings(input) {
-    const next = { ...this.settings, ...pick(input) };
-    next.country = normalizeCountry(next.country);
-    next.postalCode = normalizePostalCode(next.postalCode);
-    next.maxDistanceKm = Number(next.maxDistanceKm) || this.settings.maxDistanceKm;
-    next.emailTo = String(next.emailTo ?? '').trim();
-    next.ntfyTopic = normalizeTopic(next.ntfyTopic);
-    next.product = normalizeProduct(next.product);
-    next.filters = normalizeFilters(next.filters);
+    const next = validateSettings({ ...this.settings, ...pick(input) });
     const countryChanged = next.country !== this.settings.country;
     if (countryChanged) {
       // Part numbers, stores and the product menu all differ between countries.
@@ -178,12 +203,23 @@ export class Checker {
     }
     const productChanged = countryChanged || next.product !== this.settings.product;
     if (productChanged) {
-      Object.assign(next, { model: 'all', filters: {} });
+      // A combined product + exact-filter save must keep the new selection.
+      if (!Object.hasOwn(input, 'model')) next.model = 'all';
+      if (!Object.hasOwn(input, 'filters')) next.filters = {};
       this.catalog = [];
       this.variants = null;
       this.models = [];
+      this.purchaseLinks = {};
     }
     const changed = SETTING_KEYS.some((k) => JSON.stringify(next[k]) !== JSON.stringify(this.settings[k]));
+    const stockChanged = ['country', 'product', 'model', 'filters', 'postalCode', 'maxDistanceKm']
+      .some((key) => JSON.stringify(next[key]) !== JSON.stringify(this.settings[key]));
+    if (stockChanged) {
+      this.models = [];
+      this.availability = { pickup: [], delivery: [] };
+      this.lastChecked = null;
+      this.error = null;
+    }
     this.settings = next;
     if (this.settingsFile) await writeFile(this.settingsFile, JSON.stringify(this.settings, null, 2) + '\n');
     if (productChanged && this.store) {
@@ -211,13 +247,27 @@ export class Checker {
     if (!products.some((p) => p.slug === this.settings.product)) {
       products.push({ slug: this.settings.product, name: this.variants?.title ?? productName(this.settings.product) });
     }
+    const catalog = this.catalog.length ? this.catalog : this.variants ? modelsFromVariants(this.variants) : [];
+    const byPart = new Map((this.variants?.models ?? []).map((model) => [model.partNumber, model]));
+    const selectedModels = selectProducts(filterVariants(catalog, this.variants, this.settings.filters), this.settings.model)
+      .map((model) => ({
+        ...model,
+        image: byPart.get(model.partNumber)?.image ?? null,
+        price: model.price ?? byPart.get(model.partNumber)?.price ?? null,
+        purchaseUrl: this.purchaseLinks[model.partNumber]?.purchaseUrl ?? this.store?.productUrl ?? null,
+        exactUrl: this.purchaseLinks[model.partNumber]?.exactUrl ?? false,
+      }));
+    const checkout = checkoutSummary({ selectedModels, availability: this.availability, lastChecked: this.lastChecked, error: this.error });
     return {
       settings: this.settings,
       products,
       catalog: this.catalog,
       variants: this.variants,
       productImages: this.productImages,
-      models: this.models,
+      models: this.models.map((model) => ({ ...model, hit: model.hit && !checkout.stale && !this.error })),
+      checkout,
+      availability: this.availability,
+      availabilityStale: checkout.stale || Boolean(this.error),
       checking: Boolean(this.checking),
       lastChecked: this.lastChecked,
       error: this.error,
@@ -247,7 +297,7 @@ export class Checker {
       this.error = err.message;
       this.log(`check failed: ${err.message}`);
       await this.store?.close().catch(() => {});
-      this.store.browser = undefined;
+      if (this.store) this.store.browser = undefined;
     }
   }
 
@@ -260,7 +310,8 @@ export class Checker {
     store.product = product;
     if (!store.browser) await store.open();
 
-    await store.loadProductPage();
+    if (typeof store.ensureProductPage === 'function') await store.ensureProductPage();
+    else await store.loadProductPage();
     await this.loadVariants(store.html);
     let catalog = parseProducts(store.html);
     if (catalog.length === 0 && this.variants) catalog = modelsFromVariants(this.variants);
@@ -277,6 +328,7 @@ export class Checker {
     }
 
     this.models = summarize(selected, results);
+    this.availability = results;
     this.lastChecked = new Date().toISOString();
 
     const names = new Map(catalog.map((p) => [p.partNumber, p.name]));
@@ -292,7 +344,8 @@ export class Checker {
 
     let delivered = true;
     if (fresh.length > 0) {
-      const message = buildMessage(fresh.map((k) => current.get(k)), names, store.productUrl);
+      const firstAvailable = current.get(fresh[0]);
+      const message = buildMessage(fresh.map((k) => current.get(k)), names, this.purchaseLinks[firstAvailable.partNumber]?.purchaseUrl ?? store.productUrl);
       this.log(`${message.subject}\n${message.text}`);
       const notifiers = this.notifiers();
       if (!this.dryRun && notifiers.length > 0) delivered = await notifyAll(notifiers, message, this.log);
@@ -347,7 +400,10 @@ export function buildMessage(items, names, url) {
 function pick(obj) {
   const out = Object.fromEntries(Object.entries(obj ?? {}).filter(([k]) => SETTING_KEYS.includes(k)));
   if (!out.filters && (obj?.colors || obj?.capacities)) {
-    out.filters = normalizeFilters({ dimensionColor: obj.colors, dimensionCapacity: obj.capacities });
+    out.filters = normalizeFilters({
+      ...(obj.colors && { dimensionColor: obj.colors }),
+      ...(obj.capacities && { dimensionCapacity: obj.capacities }),
+    });
   }
   return out;
 }
