@@ -3,373 +3,232 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Apple Stock</title>
+<title>Apple Stock · Ready when it is</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon.png">
 <link rel="icon" href="/icon.png">
-<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Stock">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-title" content="Apple Stock">
+<meta name="theme-color" content="#f5f7fa">
 <style>
-  :root { color-scheme: light dark; --fg: #1d1d1f; --dim: #6e6e73; --bg: #fff; --panel: #f5f5f7; --line: #d2d2d7; --blue: #0071e3; --hit: #008009; --menu: #fff; }
-  @media (prefers-color-scheme: dark) { :root { --fg: #f5f5f7; --dim: #a1a1a6; --bg: #000; --panel: #161617; --line: #424245; --blue: #2997ff; --hit: #30d158; --menu: #1d1d1f; } }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.47 -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing: -0.022em; -webkit-font-smoothing: antialiased; }
-  button, input, select { font: inherit; color: inherit; letter-spacing: inherit; }
-  button { cursor: pointer; }
-  main { max-width: 1040px; margin: 0 auto; padding: 48px 22px 80px; }
-  .top { display: grid; grid-template-columns: 1.15fr 1fr; gap: 56px; align-items: start; }
-  .hero { position: sticky; top: 24px; aspect-ratio: 1 / 1.05; background: var(--panel); border-radius: 28px; display: grid; place-items: center; overflow: hidden; }
-  .hero img { width: 78%; height: 86%; object-fit: contain; transition: opacity .25s; }
-  @media (prefers-color-scheme: light) { .hero img, .menu img, .list img { mix-blend-mode: multiply; } }
-  .side { display: grid; gap: 36px; }
-  .picker { position: relative; }
-  .picker > button { display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 0; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.003em; }
-  .picker > button::after { content: ""; width: 10px; height: 10px; border: solid var(--dim); border-width: 0 2px 2px 0; transform: translateY(-4px) rotate(45deg); transition: transform .2s; }
-  .picker.open > button::after { transform: translateY(2px) rotate(-135deg); }
-  .price { color: var(--dim); margin-top: 6px; min-height: 25px; }
-  .menu { max-height: min(70vh, 560px); overflow-y: auto; position: absolute; z-index: 2; top: calc(100% + 10px); left: -8px; min-width: 300px; margin: 0; padding: 8px; list-style: none; background: var(--menu); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 16px 48px rgba(0,0,0,.14); }
-  .picker:not(.open) .menu { display: none; }
-  .menu button { display: flex; align-items: center; gap: 14px; width: 100%; padding: 8px 12px; background: none; border: 0; border-radius: 12px; text-align: left; font-size: 17px; }
-  .menu button:hover, .menu button.on { background: var(--panel); }
-  .menu img, .menu .ph { width: 40px; height: 48px; object-fit: contain; }
-  .dots { display: flex; flex-wrap: wrap; gap: 16px; }
-  .dots button { width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: var(--panel); box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); transition: box-shadow .15s; }
-  .dots button.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--blue); }
-  .dots img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
-  .hint { color: var(--dim); font-size: 14px; margin-top: 12px; }
-  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  #options { display: grid; gap: 36px; }
-  #options:empty { display: none; }
-  .tiles button { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 18px; background: none; border: 0; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); text-align: left; transition: box-shadow .15s; }
-  .tiles button:hover { box-shadow: inset 0 0 0 1px var(--dim); }
-  .tiles button.on { box-shadow: inset 0 0 0 2px var(--blue); }
-  .tiles b { font-weight: 600; font-size: 17px; }
-  .tiles span { color: var(--dim); font-size: 14px; }
-  .fields { display: grid; gap: 12px; }
-  .row2 { display: grid; grid-template-columns: 1fr auto; gap: 12px; }
-  .field { height: 56px; padding: 0 16px; border: 0; border-radius: 12px; background: none; box-shadow: inset 0 0 0 1px var(--line); width: 100%; outline: none; }
-  .field:focus { box-shadow: inset 0 0 0 2px var(--blue); }
-  .field::placeholder { color: var(--dim); }
-  #postal { text-transform: uppercase; }
-  #postal::placeholder { text-transform: none; }
-  select.field { appearance: none; padding-right: 40px; cursor: pointer; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2386868b' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 16px center; }
-  .alerts { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; height: 56px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); background: none; border: 0; width: 100%; text-align: left; }
-  .alerts.on { box-shadow: inset 0 0 0 1px var(--line); }
-  .alerts .state { color: var(--dim); font-size: 14px; }
-  .alerts.on .state { color: var(--hit); }
-  .alerts:disabled { cursor: default; color: var(--dim); }
-  .link { background: none; border: 0; padding: 0; color: var(--blue); font-size: 14px; text-decoration: none; }
-  .go { height: 52px; border: 0; border-radius: 12px; background: var(--blue); color: #fff; font-size: 17px; }
-  .go:hover { filter: brightness(1.08); }
-  .go:disabled { opacity: .5; cursor: default; }
-  .list { margin: 64px 0 0; padding: 0; list-style: none; }
-  .list li { display: grid; grid-template-columns: 56px 1fr auto; gap: 18px; align-items: center; padding: 14px 0; border-top: 1px solid var(--line); }
-  .list li:last-child { border-bottom: 1px solid var(--line); }
-  .list img, .list .ph { width: 56px; height: 64px; object-fit: contain; }
-  .list b { font-weight: 600; font-size: 17px; }
-  .list span { color: var(--dim); font-size: 14px; text-align: right; }
-  .list li.hit span { color: var(--hit); font-weight: 600; }
-  .list li.hit span::before { content: "●"; margin-right: 6px; font-size: 10px; vertical-align: 2px; }
-  footer { color: var(--dim); font-size: 12px; text-align: center; margin-top: 28px; min-height: 18px; }
-  footer.err { color: #e30000; }
-  [hidden] { display: none !important; }
-  @media (max-width: 780px) {
-    main { padding-top: 24px; }
-    .top { grid-template-columns: 1fr; gap: 28px; }
-    .hero { position: static; aspect-ratio: 1.2; border-radius: 22px; }
-    .picker > button { font-size: 32px; }
-    .list { margin-top: 40px; }
-    .list li { grid-template-columns: 44px 1fr; gap: 4px 14px; }
-    .list img, .list .ph { width: 44px; height: 52px; grid-row: span 2; }
-    .list span { text-align: left; }
-  }
+:root{color-scheme:light;--ink:#202124;--muted:#667085;--paper:#fff;--surface:#f5f7fa;--line:#e0e5eb;--blue:#0071e3;--green:#16764b;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--surface);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;letter-spacing:-.015em;-webkit-font-smoothing:antialiased}button,input,select{font:inherit;color:inherit}button,a,input,select,summary{-webkit-tap-highlight-color:transparent}button,a,summary{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:default;opacity:.55}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #80baff;outline-offset:4px}[hidden]{display:none!important}h1,h2,h3,p{margin:0}h1{font-size:clamp(36px,4vw,48px);line-height:1.06;letter-spacing:-.055em;font-weight:650}h2{font-size:23px;letter-spacing:-.035em;font-weight:650}h3{font-size:16px;font-weight:600}button{border:0}header{height:80px;border-bottom:1px solid var(--line);background:var(--paper)}.header-inner{height:100%;max-width:1200px;margin:auto;padding:0 32px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{display:flex;align-items:center;gap:11px;font-size:18px;font-weight:650;letter-spacing:-.035em}.brand-mark{display:grid;place-items:center;width:29px;height:29px;background:var(--blue);color:white;border-radius:8px}.brand-mark svg{width:18px;height:18px}.header-status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}.dot{width:7px;height:7px;border-radius:50%;background:#98a2b3;flex-shrink:0}.dot.good{background:var(--green)}.dot.bad{background:var(--red)}main{max-width:1200px;margin:0 auto;padding:30px 32px 64px}.intro{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;gap:16px}.intro p{font-size:14px;color:var(--muted)}.intro-title{font-size:22px;letter-spacing:-.035em;font-weight:600}.workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);background:var(--paper);border:1px solid var(--line);border-radius:26px;overflow:hidden}.visual{position:relative;display:flex;flex-direction:column;min-height:590px;padding:30px;background:#f0f3f7}.visual-top{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:12px;color:var(--muted)}.saved-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.8);padding:6px 10px;border-radius:20px;color:#475467}.product-art{flex:1;min-height:340px;display:grid;place-items:center}.product-art img{width:88%;height:410px;object-fit:contain;mix-blend-mode:multiply}.art-placeholder{width:140px;height:230px;border:2px solid #d5dce5;border-radius:24px;display:grid;place-items:center;color:var(--muted);font-size:13px}.visual-bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}.visual-bottom p{font-size:12px;color:var(--muted);max-width:250px}.part{font-size:11px;color:#7a8699;overflow-wrap:anywhere}.selection{padding:34px 36px 30px;min-width:0}.product-switch{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px}.product-switch select{max-width:100%;width:auto;padding:0 20px 0 0;border:0;background:transparent;font-size:13px;color:var(--muted)}.selection-line{font-size:18px;color:var(--muted);margin-top:12px}.price{font-size:17px;margin-top:10px}.price small{font-size:12px;color:var(--muted);margin-left:6px}.options{display:grid;gap:17px;margin-top:22px}.option-group{border:0;margin:0;padding:0;min-width:0}.option-group legend{font-size:12px;color:var(--muted);margin-bottom:8px}.option-buttons{display:flex;gap:8px;flex-wrap:wrap}.option{border:1px solid var(--line);border-radius:10px;display:inline-flex;align-items:center;gap:7px;padding:9px 13px;min-height:42px;background:var(--paper);font-size:13px}.option:hover{border-color:#a4b2c3}.option[aria-pressed=true]{border:1.5px solid var(--blue);background:#f2f8ff;color:#005dbb;padding:8.5px 12.5px}.option img{height:17px;width:17px;border-radius:50%;border:1px solid #d2d2d7}.readiness{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}.readiness-title{font-size:16px;font-weight:650;display:flex;align-items:center;gap:8px}.readiness p{font-size:13px;line-height:1.55;color:var(--muted);margin-top:7px}.primary{display:inline-flex;justify-content:center;align-items:center;gap:10px;border-radius:12px;min-height:48px;padding:12px 20px;background:var(--blue);color:white;font-size:15px;font-weight:550;text-align:center}.primary:hover{background:#0064cb;text-decoration:none}.primary[aria-disabled=true]{pointer-events:none;background:#e8edf3;color:#728096}.purchase{width:100%;margin-top:18px}.secondary{min-height:38px;padding:8px 14px;background:var(--paper);border:1px solid var(--line);border-radius:10px;font-size:13px}.secondary:hover{background:var(--surface)}.text-button{background:transparent;color:var(--blue);font-size:12px;padding:6px 0}.utility-row{display:flex;justify-content:space-between;gap:10px;margin-top:8px}.arm-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0 0;margin-top:10px;border-top:1px solid var(--line)}.arm-row label{font-size:13px;font-weight:500;cursor:pointer}.arm-row p{font-size:11px;color:var(--muted);margin-top:3px}.switch{width:38px;height:23px;accent-color:var(--blue);cursor:pointer;flex-shrink:0}.arm-note{font-size:12px;color:var(--muted);margin-top:8px;min-height:18px}.under{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:28px;margin-top:34px}.section-header{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:6px}.section-subtitle{font-size:13px;color:var(--muted);margin-bottom:20px}.location{display:flex;align-items:end;gap:8px;margin:18px 0;flex-wrap:wrap}.field-label{display:grid;gap:6px;font-size:11px;color:var(--muted);flex:1;min-width:90px}.field{width:100%;height:42px;min-width:0;background:var(--paper);border:1px solid #d7dfe8;border-radius:9px;padding:0 11px;font-size:13px;outline:none}.location .country-field{flex:1.3}.location .distance-field{flex:1}.location .save-location{height:42px}.store-list{list-style:none;margin:0;padding:0}.store{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 0;border-bottom:1px solid var(--line)}.store:last-child{border-bottom:0}.store-title{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}.store p{font-size:12px;color:var(--muted);margin-top:4px}.store-right{text-align:right;max-width:48%;font-size:12px;color:var(--muted)}.store.available .store-right{color:var(--green)}.store .recommend{font-size:10px;color:var(--green);font-weight:500;background:#e7f4ed;padding:3px 7px;border-radius:5px}.empty{padding:24px 20px;background:#edf1f6;border-radius:13px;color:var(--muted);font-size:13px;line-height:1.6}.empty strong{display:block;color:#475467;margin-bottom:5px;font-weight:550}.stale-note{color:#985b13;background:#fff4df;padding:10px 13px;border-radius:9px;font-size:12px;margin:12px 0}.tools{padding-left:28px;border-left:1px solid var(--line)}.tool-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:17px 0;border-bottom:1px solid var(--line)}.tool-row p{font-size:12px;color:var(--muted);margin-top:4px}.tool-row button,.tool-row a{font-size:12px;white-space:nowrap}.tool-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.tool-state{font-size:12px;overflow-wrap:anywhere;color:var(--muted);margin-top:8px}.readme{margin-top:20px;font-size:12px;color:var(--muted);line-height:1.6}.readme strong{font-weight:550;color:#475467}.error-banner{border:1px solid #f7d4ce;background:#fff2ef;color:#8e241b;border-radius:12px;padding:13px 16px;margin-bottom:22px;font-size:13px;line-height:1.5}.error-banner button{color:inherit;text-decoration:underline;margin-left:6px}.loading{font-size:14px;color:var(--muted)}footer{display:flex;justify-content:space-between;gap:20px;color:#8490a2;font-size:11px;margin-top:40px;line-height:1.6}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#263344;color:white;border-radius:10px;padding:11px 18px;max-width:calc(100% - 32px);z-index:10;font-size:13px;box-shadow:0 6px 25px #26334420}.technical{font-size:11px;word-break:break-word;color:var(--muted)}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:880px){.selection{padding:28px}.visual{padding:24px;min-height:540px}.product-art img{height:300px}.under{gap:22px}.tools{padding-left:22px}.header-inner,main{padding-left:24px;padding-right:24px}}@media(max-width:660px){header{height:65px}.header-inner,main{padding-left:18px;padding-right:18px}main{padding-top:24px}.header-status{font-size:11px}.brand{font-size:16px}.intro-title{font-size:19px}.intro p{font-size:12px}.workspace{grid-template-columns:1fr;border-radius:20px}.visual{min-height:310px;padding:20px}.product-art{min-height:215px}.product-art img{height:230px;width:80%}.visual-bottom p{display:none}.part{font-size:10px}.selection{padding:26px 24px}.selection-line{font-size:17px}h1{font-size:36px}.under{grid-template-columns:1fr;gap:28px}.tools{padding:24px 0 0;border-left:0;border-top:1px solid var(--line)}footer{display:block;margin-top:28px}footer p+p{margin-top:5px}.location{gap:9px}.location .country-field{flex-basis:100%}.location .save-location{flex-basis:100%}.section-header h2{font-size:21px}}@media(prefers-reduced-motion:no-preference){.primary,.option,.secondary{transition:background .15s,border-color .15s}}
 </style>
 </head>
 <body>
+<header><div class="header-inner"><div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 15.5 9.5 11l3 3L20 6.5M14 6.5h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Apple Stock</div><div class="header-status"><span id="connectionDot" class="dot"></span><span id="connectionStatus">Connecting to your monitor</span></div></div></header>
 <main>
-  <div class="top">
-    <div class="hero"><img id="hero" alt=""></div>
-    <div class="side">
-      <div>
-        <div class="picker" id="picker">
-          <button type="button" id="product" aria-haspopup="listbox"></button>
-          <ul class="menu" id="menu" role="listbox"></ul>
-        </div>
-        <div class="price" id="price"></div>
-      </div>
-      <div id="options"></div>
-      <div class="fields">
-        <select class="field" id="country" aria-label="Country"></select>
-        <div class="row2">
-          <input class="field" id="postal" placeholder="Postal code" maxlength="10" autocomplete="postal-code">
-          <select class="field" id="distance" aria-label="Distance"></select>
-        </div>
-        <div class="alerts" id="alerts" hidden>
-          <button class="link" type="button" id="pushOn">Turn on notifications</button>
-          <span class="state" id="pushState"></span>
-          <span id="pushActions" hidden><button class="link" type="button" id="pushTest">Test</button> &nbsp; <button class="link" type="button" id="pushOff">Turn off</button></span>
-        </div>
-        <div class="alerts" id="ntfy">
-          <button class="link" type="button" id="ntfyOn">Get alerts in the ntfy app</button>
-          <span class="state" id="ntfyState" hidden></span>
-          <span id="ntfyActions" hidden><a class="link" id="ntfyOpen" target="_blank" rel="noopener">Subscribe</a> &nbsp; <button class="link" type="button" id="ntfyTest">Test</button> &nbsp; <button class="link" type="button" id="ntfyOff">Turn off</button></span>
-        </div>
-        <input class="field" id="email" type="email" placeholder="Email me when it’s in stock" autocomplete="email">
-        <button class="go" type="button" id="check">Check now</button>
-      </div>
-    </div>
-  </div>
-  <ul class="list" id="rows"></ul>
-  <footer id="status"></footer>
-</main>
+<div id="errorBanner" class="error-banner" role="alert" hidden><span id="errorText"></span><button class="text-button" id="retry">Retry</button></div>
+<div class="intro"><div><div class="intro-title">Ready when it is.</div><p>Your exact configuration. One step closer.</p></div><button class="secondary" id="check" disabled>Check now</button></div>
+<div class="workspace">
+<section class="visual" aria-label="Selected product"><div class="visual-top"><span class="saved-tag"><span class="dot" id="selectionDot"></span><span id="selectionTag">Loading selection</span></span><span id="countryTag"></span></div><div class="product-art"><img id="hero" alt="" hidden><div class="art-placeholder" id="artPlaceholder">Apple Stock</div></div><div class="visual-bottom"><p>Keep your selection ready.<br>Finish your purchase directly with Apple.</p><span class="part" id="partNumber"></span></div></section>
+<section class="selection" aria-label="Your configuration"><div class="product-switch"><select id="product" aria-label="Apple product" disabled><option>Loading products…</option></select></div><h1 id="productName">Your next iPhone.</h1><div class="selection-line" id="selectionLine">Loading your saved selection…</div><div class="price" id="price"></div><div class="options" id="options"></div>
+<div class="readiness" aria-live="polite"><div class="readiness-title"><span id="readyDot" class="dot"></span><span id="readyTitle">Connecting to the monitor</span></div><p id="readyReason">Your saved configuration and current availability will appear here.</p><p id="shippingNote" hidden></p></div>
+<a id="purchase" class="primary purchase" target="_blank" rel="noopener noreferrer" aria-disabled="true">Open your selection at Apple <span aria-hidden="true">↗</span></a>
+<div class="utility-row"><button class="text-button" id="copyLink" disabled>Copy selection link</button><button class="text-button" id="copyZip" disabled>Copy ZIP code</button></div>
+<div class="arm-row"><div><label for="arm">Open Apple when stock appears</label><p>Keep this page and the waiting tab open.</p></div><input class="switch" id="arm" type="checkbox" role="switch" disabled></div><p class="arm-note" id="armNote">Opens your selected model. You review and place the order.</p>
+</section></div>
+<div class="under"><section aria-labelledby="storesTitle"><div class="section-header"><h2 id="storesTitle">Availability near you</h2><span class="technical" id="checkedAt"></span></div><p class="section-subtitle" id="locationSummary">Choose a location to find nearby pickup.</p><form class="location" id="locationForm"><label class="field-label country-field">Store country<select class="field" id="country" disabled></select></label><label class="field-label"><span id="postalLabel">ZIP code</span><input class="field" id="postal" maxlength="10" autocomplete="postal-code" required disabled></label><label class="field-label distance-field">Search radius<select class="field" id="distance" disabled></select></label><button class="secondary save-location" type="submit" id="saveLocation" disabled>Update location</button></form><div id="staleNote" class="stale-note" hidden>These results are from an older check. Refresh before relying on them.</div><ul class="store-list" id="stores"></ul><div class="empty" id="storeEmpty"><strong>Waiting for the first check</strong>Keep the monitor running to check Apple’s latest pickup and courier availability.</div></section>
+<aside class="tools" aria-labelledby="alertsTitle"><h2 id="alertsTitle">Be first to know</h2><p class="section-subtitle">Choose where your stock alerts arrive.</p><div class="tool-row" id="alerts"><div><h3>Browser notifications</h3><p id="pushDescription">Get an alert on this device.</p></div><button class="text-button" id="pushOn" disabled>Enable</button><div class="tool-actions" id="pushActions" hidden><button class="text-button" id="pushTest">Test</button><button class="text-button" id="pushOff">Off</button></div></div><div class="tool-state" id="pushState"></div>
+<div class="tool-row"><div><h3>Phone alerts with ntfy</h3><p>Free push alerts in the ntfy app.</p></div><button class="text-button" id="ntfyOn" disabled>Set up</button><div class="tool-actions" id="ntfyActions" hidden><a id="ntfyOpen" target="_blank" rel="noopener noreferrer">Subscribe</a><button class="text-button" id="ntfyTest">Test</button><button class="text-button" id="ntfyOff">Off</button></div></div><div class="tool-state" id="ntfyState" hidden></div>
+<label class="field-label" id="emailWrap" style="margin-top:20px" hidden>Email alerts<input class="field" id="email" type="email" autocomplete="email" placeholder="Email address"></label>
+<p class="readme"><strong>Fast by design.</strong> Your saved model is matched exactly, then available pickup is ranked by distance. No AI subscription or API key is needed.</p><p class="readme">Stock can change before checkout. Apple confirms pickup, delivery, and the final price. Keep the local monitor running for checks and alerts.</p></aside></div>
+<footer><p>Independent stock monitor. Not affiliated with Apple.</p><p id="footerStatus">All purchases are completed on apple.com.</p></footer>
+</main><div class="toast" id="toast" role="status" hidden></div>
 <script>
-const $ = (id) => document.getElementById(id);
-const el = (tag, props = {}, ...kids) => {
-  const node = Object.assign(document.createElement(tag), props);
-  node.append(...kids.filter((k) => k != null));
-  return node;
-};
-const img = (src, cls) => (src ? el('img', { src, alt: '', loading: 'lazy' }) : el('div', { className: cls ?? 'ph' }));
-const country = () => state.countries?.find((c) => c.id === state.settings.country);
-const countryFlags = { ca: '🇨🇦', us: '🇺🇸' };
-const money = (n) => (n == null ? '' : `$${Number(n).toLocaleString(country()?.locale ?? 'en-US', { maximumFractionDigits: 0 })}`);
-// Values are always km; US users pick in miles.
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}, ...children) => { const node = Object.assign(document.createElement(tag), props); node.append(...children.filter(v => v != null)); return node; };
+let state = null, drawn = '', networkError = '', saving = false, polling = false, pushInitialized = false, toastTimer, revision = 0;
+let armedWindow = null, armedKey = '', hasObservedUnavailable = false;
 const KM_PER_MILE = 1.609344;
-const distances = (us) => (us ? [5, 10, 25, 50, 100, 300].map((mi) => [Math.round(mi * KM_PER_MILE), `${mi} mi`]) : [5, 10, 25, 50, 100, 500].map((km) => [km, `${km} km`]));
-const short = (name, product) => (product && /^[^a-z]/.test(name.slice(product.length + 1)) && name.startsWith(`${product} `) ? name.slice(product.length + 1) : name);
-const ago = (iso) => {
-  const s = Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000));
-  return s < 60 ? `${s}s ago` : `${Math.round(s / 60)}m ago`;
-};
-const minPrice = (models) => {
-  const prices = models.map((m) => m.price).filter((p) => p != null);
-  return prices.length ? Math.min(...prices) : null;
-};
-
-let state;
-let drawn = '';
-let preview = null;
-
-async function api(path, body) {
-  const res = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const next = await res.json();
-  if (res.ok) state = next;
-  render();
-  if (!res.ok) $('status').textContent = next.error || 'Request failed';
+const country = () => state?.countries?.find(c => c.id === state.settings.country);
+const money = n => n == null ? '' : new Intl.NumberFormat(country()?.locale || 'en-US', {style:'currency',currency:state?.settings.country === 'ca' ? 'CAD' : 'USD',maximumFractionDigits:0}).format(n);
+const age = iso => { const n = Math.max(0, Math.floor((Date.now()-Date.parse(iso))/1000)); return n < 60 ? `${n}s ago` : n < 3600 ? `${Math.floor(n/60)}m ago` : `${Math.floor(n/3600)}h ago`; };
+const distances = us => us ? [5,10,25,50,100,300].map(mi => [Math.round(mi*KM_PER_MILE),`${mi} mi`]) : [5,10,25,50,100,500].map(km => [km,`${km} km`]);
+const targetKey = () => JSON.stringify([state?.settings.country,state?.settings.product,state?.settings.model,state?.settings.filters,state?.settings.postalCode,state?.settings.maxDistanceKm,state?.checkout?.selectedModel?.partNumber,state?.checkout?.purchaseUrl]);
+const safeAppleUrl = value => { try { const u = new URL(value); return u.protocol === 'https:' && u.hostname === 'www.apple.com' && !u.port && !u.username && !u.password ? u.href : null; } catch { return null; } };
+function toast(message) { $('toast').textContent = message; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').hidden = true, 4000); }
+function disarm(note, closeWaiting = true) { if (closeWaiting && armedWindow) { try { if (!armedWindow.closed && armedWindow.location.href === 'about:blank') armedWindow.close(); } catch {} } armedWindow = null; armedKey = ''; hasObservedUnavailable = false; $('arm').checked = false; if (note) $('armNote').textContent = note; }
+function showError(message) { networkError = message; disarm('Automatic opening paused. Re-enable after the connection recovers.'); render(); }
+async function request(path, body) {
+  const response = await fetch(path, {cache:'no-store', ...(body === undefined ? {} : {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}), signal:AbortSignal.timeout(path === '/api/settings' ? 180000 : 20000)});
+  let data; try { data = await response.json(); } catch { throw new Error('The monitor returned an unreadable response. Restart it and retry.'); }
+  if (!response.ok) throw new Error(data.error || `Request failed (${response.status}).`);
+  return data;
 }
-const save = (patch) => api('/api/settings', patch);
-const toggle = (list = [], key) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]);
-const COLOR = 'dimensionColor';
-const wanted = (dim) => state.settings.filters[dim] ?? [];
-const matches = (m, skip) => Object.entries(state.settings.filters).every(([d, keys]) => d === skip || !keys.length || !(d in m.dims) || keys.includes(m.dims[d]));
-const setFilter = (dim, key) => save({ filters: { ...state.settings.filters, [dim]: toggle(wanted(dim), key) } });
-
-function render() {
-  if (!state) return;
-  const key = JSON.stringify([state.settings, state.variants, state.products, state.productImages, state.emailEnabled]);
-  if (key !== drawn) {
-    drawn = key;
-    renderControls();
-  }
-  renderRows();
-  const { checking, lastChecked, error } = state;
-  $('status').className = error ? 'err' : '';
-  $('status').textContent = error || (checking ? 'Checking…' : lastChecked ? `Checked ${ago(lastChecked)}` : '');
-  $('check').disabled = checking;
-  $('check').textContent = checking ? 'Checking…' : 'Check now';
+async function refresh() {
+  if (polling || saving) return;
+  polling = true;
+  const startedAtRevision = revision;
+  try { const data = await request('/api/state'); if (saving || startedAtRevision !== revision) return; state = data; networkError = ''; render(); if (!pushInitialized) { pushInitialized = true; initPush().catch(err => $('pushState').textContent = err.message); } }
+  catch (err) { showError('Cannot reach your local monitor. Make sure npm start is running, then retry.'); }
+  finally { polling = false; }
 }
-
-function selectedModels() {
-  return (state.variants?.models ?? []).filter((m) => matches(m));
+async function save(patch) {
+  if (!state || saving) return;
+  saving = true; revision++; disarm('Selection updated. Enable automatic opening again when ready.'); render();
+  try { state = await request('/api/settings', patch); networkError = ''; toast('Selection saved. Checking availability…'); }
+  catch (err) { showError(err.message); }
+  finally { saving = false; drawn = ''; render(); }
 }
-
-function renderHero() {
-  const { settings, variants, productImages } = state;
-  const models = variants?.models ?? [];
-  const model = preview
-    ? models.find((m) => m.dims[COLOR] === preview && matches(m, COLOR)) ?? models.find((m) => m.dims[COLOR] === preview)
-    : selectedModels()[0] ?? models[0];
-  const src = model?.image ?? productImages[settings.product] ?? '';
-  if ($('hero').getAttribute('src') !== src) $('hero').src = src;
+function selectedVariant() {
+  const pn = state?.checkout?.selectedModel?.partNumber;
+  return (state?.variants?.models || []).find(m => m.partNumber === pn);
 }
-
+function effectiveFilters() {
+  const model = selectedVariant();
+  return Object.fromEntries((state?.variants?.dimensions || []).map(d => [d.key, state.settings.filters?.[d.key]?.length ? state.settings.filters[d.key] : model?.dims[d.key] ? [model.dims[d.key]] : []]));
+}
+function chooseOption(dim, key) {
+  const filters = {...effectiveFilters(), [dim]:[key]};
+  save({model:'all',filters});
+}
+function dimLabel(dim) { return dim.name || dim.label || dim.key.replace(/^dimension/, '').replace(/([a-z])([A-Z])/g,'$1 $2'); }
 function renderControls() {
-  const { settings, products, variants, productImages } = state;
-  const current = products.find((p) => p.slug === settings.product);
-  $('product').textContent = current?.name ?? settings.product;
-  $('menu').replaceChildren(...products.map((p) => el('li', { role: 'option' },
-    el('button', {
-      type: 'button',
-      className: p.slug === settings.product ? 'on' : '',
-      onclick: () => {
-        $('picker').classList.remove('open');
-        if (p.slug !== settings.product) save({ product: p.slug });
-      },
-    }, img(productImages[p.slug]), p.name))));
-
-  const price = minPrice(selectedModels());
-  $('price').textContent = price == null ? '' : `From ${money(price)}`;
-
-  $('options').replaceChildren(...(variants?.dimensions ?? []).map((dim) => {
-    const on = wanted(dim.key);
-    if (dim.key === COLOR) {
-      const names = dim.options.filter((o) => on.includes(o.key)).map((o) => o.name);
-      return el('div', {},
-        el('div', { className: 'dots' }, ...dim.options.map((o) => el('button', {
-          type: 'button',
-          title: o.name,
-          ariaLabel: o.name,
-          className: on.includes(o.key) ? 'on' : '',
-          onclick: () => setFilter(dim.key, o.key),
-          onmouseenter: () => { preview = o.key; renderHero(); },
-          onmouseleave: () => { preview = null; renderHero(); },
-        }, img(o.swatch)))),
-        el('div', { className: 'hint', textContent: names.length ? names.join(', ') : 'Any colour' }));
-    }
-    return el('div', { className: 'tiles' }, ...dim.options.map((o) => {
-      const p = minPrice(variants.models.filter((m) => m.dims[dim.key] === o.key && matches(m, dim.key)));
-      return el('button', {
-        type: 'button',
-        className: on.includes(o.key) ? 'on' : '',
-        onclick: () => setFilter(dim.key, o.key),
-      }, el('b', { textContent: o.name }), el('span', { textContent: money(p) }));
-    }));
+  const disabled = saving || state.initializing;
+  const s = state.settings, co = state.checkout || {}, v = state.variants, current = state.products?.find(p=>p.slug===s.product);
+  $('product').replaceChildren(...(state.products || []).map(p => el('option',{value:p.slug,textContent:p.name})));
+  $('product').value = s.product; $('product').disabled = disabled;
+  $('productName').textContent = current?.name || v?.title || 'Apple product';
+  const selected = co.selectedModel, filters = effectiveFilters();
+  const names = (v?.dimensions || []).flatMap(d => d.options.filter(o=>(filters[d.key] || []).includes(o.key)).map(o=>o.name));
+  $('selectionLine').textContent = names.length ? names.join(' / ') : co.selectedModels?.length > 1 ? 'Choose one configuration below' : selected?.name || 'Choose your configuration';
+  $('price').replaceChildren();
+  if (selected?.price != null) $('price').append(money(selected.price),el('small',{textContent:'before tax'}));
+  $('options').replaceChildren(...(v?.dimensions || []).map(dim => {
+    const group = el('fieldset',{className:'option-group'},el('legend',{textContent:dimLabel(dim)}));
+    group.append(el('div',{className:'option-buttons'},...dim.options.map(option => {
+      const b = el('button',{type:'button',className:'option',disabled,onclick:()=>chooseOption(dim.key,option.key)},option.swatch ? el('img',{src:option.swatch,alt:''}) : null,option.name);
+      b.setAttribute('aria-pressed',String((filters[dim.key] || []).includes(option.key))); return b;
+    }))); return group;
   }));
-
-  if (document.activeElement !== $('postal')) $('postal').value = settings.postalCode;
-  if (document.activeElement !== $('email')) $('email').value = settings.emailTo;
-  if (!$('country').options.length) {
-    $('country').replaceChildren(...(state.countries ?? []).map((c) => el('option', { value: c.id, textContent: `${countryFlags[c.id] ?? ''} ${c.name}`.trim() })));
-    if (!country()) $('country').append(el('option', { value: settings.country, textContent: settings.country.toUpperCase() }));
-  }
-  $('country').value = settings.country;
-  $('postal').placeholder = country()?.postal ?? 'Postal code';
-  const options = distances(settings.country === 'us');
-  if ($('distance').dataset.country !== settings.country) {
-    $('distance').dataset.country = settings.country;
-    $('distance').replaceChildren(...options.map(([km, label]) => el('option', { value: String(km), textContent: label })));
-  }
-  $('distance').value = String(nearestKm(settings.country === 'us', settings.maxDistanceKm));
-  $('email').hidden = !state.emailEnabled;
-  const topic = settings.ntfyTopic;
-  $('ntfyOn').hidden = Boolean(topic);
-  $('ntfyState').hidden = $('ntfyActions').hidden = !topic;
-  $('ntfy').classList.toggle('on', Boolean(topic));
-  if (topic) {
-    $('ntfyState').textContent = `● ntfy · ${topic}`;
-    $('ntfyOpen').href = `${state.ntfyServer}/${topic}`;
-  }
-  renderHero();
+  const source = selected?.image || selectedVariant()?.image || state.productImages?.[s.product];
+  $('hero').hidden = !source; $('artPlaceholder').hidden = !!source;
+  if (source && $('hero').getAttribute('src') !== source) $('hero').src = source;
+  $('hero').alt = selected?.name || current?.name || 'Selected Apple product';
+  $('partNumber').textContent = selected?.partNumber || '';
+  $('selectionTag').textContent = selected ? 'Your saved selection' : 'Choose a configuration';
+  $('selectionDot').className = `dot ${selected ? 'good' : ''}`;
+  $('countryTag').textContent = s.country === 'us' ? 'U.S. Apple Store' : `${country()?.name || s.country} Apple Store`;
+  $('country').replaceChildren(...(state.countries || []).map(c=>el('option',{value:c.id,textContent:c.name})));
+  if (!$('country').querySelector(`option[value="${s.country}"]`)) $('country').append(el('option',{value:s.country,textContent:s.country.toUpperCase()}));
+  $('country').value = s.country;
+  if (document.activeElement !== $('postal')) $('postal').value = s.postalCode || '';
+  $('postalLabel').textContent = country()?.postal || 'Postal code';
+  $('postal').inputMode = s.country === 'us' ? 'numeric' : 'text';
+  const ranges = distances(s.country === 'us');
+  const matchingRange = ranges.find(([km])=>Math.abs(km-Number(s.maxDistanceKm))<.8);
+  if (matchingRange) matchingRange[0] = Number(s.maxDistanceKm);
+  if (!matchingRange) ranges.push([Number(s.maxDistanceKm),s.country === 'us' ? `${Math.round(s.maxDistanceKm/KM_PER_MILE)} mi` : `${s.maxDistanceKm} km`]);
+  $('distance').replaceChildren(...ranges.sort((a,b)=>a[0]-b[0]).map(([km,label])=>el('option',{value:String(km),textContent:label})));
+  $('distance').value = String(s.maxDistanceKm);
+  for (const id of ['country','postal','distance','saveLocation','ntfyOn']) $(id).disabled = disabled;
+  const topic = s.ntfyTopic;
+  $('ntfyOn').hidden = !!topic; $('ntfyActions').hidden = !topic; $('ntfyState').hidden = !topic;
+  if (topic) { $('ntfyOpen').href = `${state.ntfyServer}/${encodeURIComponent(topic)}`; $('ntfyState').textContent = `Subscribe to ${topic} in ntfy. Treat this topic like a private link.`; }
+  $('emailWrap').hidden = !state.emailEnabled;
+  if (document.activeElement !== $('email')) $('email').value = s.emailTo || '';
 }
-
-function productTitle() {
-  return state.products.find((p) => p.slug === state.settings.product)?.name;
+function render() {
+  $('errorBanner').hidden = !networkError; $('errorText').textContent = networkError;
+  if (!state) { $('connectionStatus').textContent = networkError ? 'Monitor disconnected' : 'Connecting to your monitor'; $('connectionDot').className = `dot ${networkError ? 'bad' : ''}`; $('readyTitle').textContent = saving ? 'Saving your selection…' : state?.initializing ? 'Loading Apple’s product catalog' : networkError ? 'Start your monitor to continue' : 'Connecting to the monitor'; $('readyReason').textContent = networkError || 'Your saved configuration and current availability will appear here.'; return; }
+  const key = JSON.stringify([state.settings,state.variants,state.products,state.productImages,state.checkout?.selectedModel,state.emailEnabled,saving,state.initializing]);
+  if (key !== drawn) { drawn = key; renderControls(); }
+  const co = state.checkout || {}, stale = !!co.checkedAt && (!!co.stale || (!!co.expiresAt && Date.now() > Date.parse(co.expiresAt))), healthy = !networkError && !state.error && !stale;
+  const exactUrl = co.selectedModel?.exactUrl ? safeAppleUrl(co.purchaseUrl || co.selectedModel.purchaseUrl) : null;
+  const ready = co.ready && healthy && !!exactUrl;
+  const titles = {'ready':co.fulfillment === 'courier' ? 'Courier delivery is available' : 'Your selection is available','waiting':'Watching for your selection','unchecked':'Ready for the first check','stale':'Availability needs a refresh','error':'Apple check needs attention','choose-model':'Choose one exact configuration','no-match':'No matching configuration'};
+  $('readyTitle').textContent = saving ? 'Saving your selection…' : state?.initializing ? 'Loading Apple’s product catalog' : networkError ? 'Monitor disconnected' : stale ? titles.stale : titles[co.status] || (state.checking ? 'Checking Apple availability' : 'Preparing your selection');
+  $('readyReason').textContent = saving ? 'Waiting for the current Apple check to finish, then applying your changes.' : state?.initializing ? 'Your saved selection will appear as soon as Apple’s catalog loads.' : networkError || state.error || (stale ? 'The last result is too old to rely on. The monitor will check again.' : co.reason) || 'Choose your configuration and location to check availability.';
+  const shipping = state.availability?.delivery?.find(entry => entry.partNumber === co.selectedModel?.partNumber)?.shipText;
+  $('shippingNote').hidden = !shipping;
+  $('shippingNote').textContent = shipping ? `${healthy ? 'Shipping' : 'Last shipping estimate'}: ${shipping}. Confirm the date at Apple.` : '';
+  $('readyDot').className = `dot ${ready ? 'good' : networkError || state.error ? 'bad' : ''}`;
+  $('purchase').setAttribute('aria-disabled',String(!exactUrl));
+  if (exactUrl) $('purchase').href = exactUrl; else $('purchase').removeAttribute('href');
+  $('purchase').replaceChildren(ready ? 'Continue at Apple' : 'Open your selection at Apple',el('span',{ariaHidden:'true',textContent:'↗'}));
+  $('copyLink').disabled = !exactUrl; $('copyZip').disabled = !state.settings.postalCode;
+  $('copyZip').textContent = state.settings.country === 'us' ? 'Copy ZIP code' : 'Copy postal code';
+  $('arm').disabled = state.initializing || !co.checkedAt || !exactUrl || !healthy || saving || co.status === 'choose-model';
+  $('check').disabled = state.initializing || !!state.checking || saving; $('check').textContent = saving ? 'Saving…' : state.checking ? 'Checking…' : 'Check now';
+  $('connectionStatus').textContent = state?.initializing ? 'Loading Apple catalog' : networkError ? 'Monitor disconnected' : state.error ? 'Check needs attention' : state.checking ? 'Checking Apple' : 'Monitor connected';
+  $('connectionDot').className = `dot ${networkError || state.error ? 'bad' : 'good'}`;
+  $('checkedAt').textContent = state.checking ? 'Checking now…' : state.nextCheckAt ? `Next check in ${Math.max(0, Math.ceil((Date.parse(state.nextCheckAt)-Date.now())/1000))}s` : state.lastChecked ? `Checked ${age(state.lastChecked)}` : 'Not checked yet';
+  $('footerStatus').textContent = state.lastChecked ? `Last successful check ${new Date(state.lastChecked).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})}` : 'All purchases are completed on apple.com.';
+  $('locationSummary').textContent = state.settings.postalCode ? `${state.settings.postalCode} · ${state.settings.country === 'us' ? Math.round(state.settings.maxDistanceKm/KM_PER_MILE)+' miles' : state.settings.maxDistanceKm+' km'} from your location` : 'Enter a location to find nearby pickup.';
+  $('staleNote').hidden = !co.checkedAt || (!stale && !state.availabilityStale);
+  renderStores(co, healthy);
+  if (armedWindow) {
+    if (armedWindow.closed) disarm('Waiting tab closed. Turn this on again to prepare a new tab.',false);
+    else if (armedKey !== targetKey()) disarm('Selection changed. Turn this on again for your new selection.');
+    else if (!healthy) disarm('Automatic opening paused after a failed or stale check. Turn it on again after recovery.');
+    else if (ready && hasObservedUnavailable) {
+      try { armedWindow.opener = null; armedWindow.location.replace(exactUrl); armedWindow.focus(); disarm('Apple opened for your selection. Review availability and complete checkout there.',false); toast('Your selection is available. Apple is open in the waiting tab.'); }
+      catch { disarm('Could not open the waiting tab. Use Continue at Apple.'); }
+    } else if (!ready) hasObservedUnavailable = true;
+  }
 }
-
-function renderRows() {
-  const images = new Map((state.variants?.models ?? []).map((m) => [m.partNumber, m.image]));
-  $('rows').replaceChildren(...state.models.map((m) => el('li', { className: m.hit ? 'hit' : '' },
-    img(images.get(m.partNumber)),
-    el('b', { textContent: short(m.name, productTitle()) }),
-    el('span', { textContent: m.status }))));
+function renderStores(co, healthy) {
+  const list = co.stores || [], selected = co.selectedModel;
+  $('stores').replaceChildren(...list.map(store=>{
+    const available = healthy && !!store.available, nearest = available && store.storeNumber === co.preferredStore?.storeNumber;
+    return el('li',{className:`store ${available ? 'available' : ''}`},el('div',{},el('div',{className:'store-title'},store.storeName || 'Apple Store',nearest ? el('span',{className:'recommend',textContent:'Nearest available'}) : null),el('p',{textContent:[store.city,store.distance].filter(Boolean).join(' · ')})),el('div',{className:'store-right',textContent:!healthy ? 'Needs a fresh check' : available ? store.quote || 'Available for pickup' : store.quote || 'Unavailable'}));
+  }));
+  $('storeEmpty').hidden = list.length > 0;
+  if (!list.length) {
+    const title = networkError ? 'Reconnect to check nearby stores' : state.error ? 'Apple could not be checked' : !selected ? 'Choose one configuration' : state.checking ? 'Checking nearby Apple Stores…' : co.fulfillment === 'courier' && healthy ? 'Courier delivery is available' : co.status === 'waiting' ? 'No pickup availability returned' : 'Waiting for a stock check';
+    $('storeEmpty').replaceChildren(el('strong',{textContent:title}),!selected ? 'Pick one option for each setting above to prepare an exact Apple link.' : 'Results appear here when Apple returns availability for your selected model and location.');
+  }
 }
-
-$('product').onclick = (e) => {
-  e.stopPropagation();
-  $('picker').classList.toggle('open');
+$('hero').onerror = () => { $('hero').hidden = true; $('artPlaceholder').hidden = false; };
+$('product').onchange = () => save({product:$('product').value});
+$('locationForm').onsubmit = e => { e.preventDefault(); save({country:$('country').value,postalCode:$('postal').value,maxDistanceKm:Number($('distance').value)}); };
+$('country').onchange = () => { const opts = distances($('country').value === 'us'); $('distance').replaceChildren(...opts.map(([km,label])=>el('option',{value:String(km),textContent:label}))); $('distance').value = String(opts[2][0]); $('postalLabel').textContent = $('country').value === 'us' ? 'ZIP code' : 'Postal code'; };
+$('email').onchange = () => { if ($('email').checkValidity()) save({emailTo:$('email').value}); else $('email').reportValidity(); };
+$('check').onclick = async () => { $('check').disabled = true; try { state = await request('/api/check',{}); networkError = ''; render(); } catch(err) { showError(err.message); } };
+$('retry').onclick = refresh;
+$('copyLink').onclick = async () => { try { await navigator.clipboard.writeText(safeAppleUrl(state.checkout.purchaseUrl)); toast('Selection link copied'); } catch { toast('Copy the link from the Open at Apple button.'); } };
+$('copyZip').onclick = async () => { try { await navigator.clipboard.writeText(state.settings.postalCode); toast('Location copied'); } catch { toast(`Your location is ${state.settings.postalCode}`); } };
+$('arm').onchange = () => {
+  if (!$('arm').checked) return disarm('Automatic opening is off.');
+  const url = state?.checkout?.selectedModel?.exactUrl && safeAppleUrl(state.checkout.purchaseUrl);
+  if (!url || networkError || state.error || !state.checkout.checkedAt || state.checkout.stale || (state.checkout.expiresAt && Date.now() >= Date.parse(state.checkout.expiresAt))) return disarm('Choose an exact model and wait for a fresh stock check before enabling.');
+  if (state.checkout.ready && !state.checkout.stale && (!state.checkout.expiresAt || Date.now()<Date.parse(state.checkout.expiresAt))) { window.open(url,'_blank','noopener,noreferrer'); $('arm').checked = false; $('armNote').textContent = 'Stock is available now. Your selected model is open at Apple.'; return; }
+  armedWindow = window.open('about:blank','_blank');
+  if (!armedWindow) return disarm('Allow pop-ups for this local page, then try again.',false);
+  armedWindow.document.title = 'Apple Stock · Waiting for your selection';
+  armedWindow.document.body.style.cssText = 'font:16px/1.6 system-ui;max-width:550px;margin:15vh auto;padding:30px;background:#f5f7fa;color:#202124';
+  const title = armedWindow.document.createElement('h1'); title.textContent = 'Your Apple tab is ready.';
+  const note = armedWindow.document.createElement('p'); note.textContent = 'Keep this tab and Apple Stock open. When a fresh check finds your exact selection available, this tab will open its Apple product page. You will review and complete the purchase.';
+  armedWindow.document.body.replaceChildren(title,note);
+  armedKey = targetKey(); hasObservedUnavailable = true; $('armNote').textContent = 'Waiting tab prepared. It will open Apple once fresh stock appears.';
 };
-document.addEventListener('click', (e) => {
-  if (!$('picker').contains(e.target)) $('picker').classList.remove('open');
-});
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') $('picker').classList.remove('open');
-});
-$('postal').onchange = () => save({ postalCode: $('postal').value });
-$('email').onchange = () => save({ emailTo: $('email').value });
-$('ntfyOn').onclick = () => {
-  const bytes = crypto.getRandomValues(new Uint8Array(6));
-  save({ ntfyTopic: `apple-stock-${[...bytes].map((b) => b.toString(36).padStart(2, '0')).join('').slice(0, 10)}` });
-};
-$('ntfyOff').onclick = () => save({ ntfyTopic: '' });
-$('ntfyState').onclick = () => navigator.clipboard?.writeText(state.settings.ntfyTopic);
-$('ntfyTest').onclick = async () => {
-  const res = await fetch('/api/ntfy/test', { method: 'POST' });
-  if (!res.ok) $('ntfyState').textContent = (await res.json()).error;
-};
-const nearestKm = (us, km) => distances(us).reduce((a, b) => (Math.abs(b[0] - km) < Math.abs(a[0] - km) ? b : a))[0];
-$('country').onchange = () => {
-  const next = $('country').value;
-  save({ country: next, maxDistanceKm: nearestKm(next === 'us', state.settings.maxDistanceKm) });
-};
-$('distance').onchange = () => save({ maxDistanceKm: Number($('distance').value) });
-for (const id of ['postal', 'email']) $(id).onkeydown = (e) => e.key === 'Enter' && $(id).blur();
-$('check').onclick = () => api('/api/check', {});
-
+$('ntfyOn').onclick = () => { const bytes = crypto.getRandomValues(new Uint8Array(12)); save({ntfyTopic:`apple-stock-${[...bytes].map(b=>b.toString(16).padStart(2,'0')).join('')}`}); };
+$('ntfyOff').onclick = () => save({ntfyTopic:''});
+$('ntfyTest').onclick = async () => { try { await request('/api/ntfy/test',{}); toast('Test notification sent'); } catch(err) { toast(err.message); } };
 const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
-const post = (path, body) => fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
-const keyBytes = (b64) => Uint8Array.from(atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (b64.length % 4)) % 4)), (c) => c.charCodeAt(0));
-
-async function currentSubscription() {
-  const reg = await navigator.serviceWorker.getRegistration('/');
-  return reg?.pushManager.getSubscription();
-}
-
-function showPush(mode, note = '') {
-  $('alerts').hidden = false;
-  $('pushOn').hidden = mode !== 'off';
-  $('pushActions').hidden = mode !== 'on';
-  $('alerts').classList.toggle('on', mode === 'on');
-  $('pushState').textContent = note || (mode === 'on' ? '● Notifications on' : '');
-  $('alerts').prepend(mode === 'on' ? $('pushState') : $('pushOn'));
-}
-
+const keyBytes = b64 => Uint8Array.from(atob(b64.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-b64.length%4)%4)),c=>c.charCodeAt(0));
+async function currentSubscription() { const reg = await navigator.serviceWorker.getRegistration('/'); return reg?.pushManager.getSubscription(); }
+function showPush(mode,note='') { $('pushOn').hidden = mode === 'on'; $('pushOn').disabled = mode === 'none'; $('pushActions').hidden = mode !== 'on'; $('pushState').textContent = note; $('pushDescription').textContent = mode === 'on' ? 'Notifications enabled on this device.' : 'Get an alert on this device.'; }
 async function initPush() {
-  if (!state?.pushEnabled) return;
-  if (!pushSupported) {
-    if (ios && !standalone) showPush('none', 'Share → Add to Home Screen to get alerts');
-    return;
-  }
+  if (!state?.pushEnabled) return showPush('none','Push is not configured on this monitor.');
+  if (!pushSupported) return showPush('none',ios && !standalone ? 'In Safari, add this page to your Home Screen for notifications.' : 'Use a browser that supports push notifications.');
   const sub = await currentSubscription();
-  if (sub && Notification.permission === 'granted') {
-    await post('/api/push/subscribe', sub);
-    showPush('on');
-  } else showPush('off', Notification.permission === 'denied' ? 'Blocked in settings' : '');
+  if (sub && Notification.permission === 'granted') { await request('/api/push/subscribe',sub); showPush('on'); }
+  else showPush('off',Notification.permission === 'denied' ? 'Notifications are blocked in browser settings.' : '');
 }
-
 $('pushOn').onclick = async () => {
-  try {
-    const reg = await navigator.serviceWorker.register('/sw.js');
-    if ((await Notification.requestPermission()) !== 'granted') return showPush('off', 'Blocked in settings');
-    const { publicKey } = await (await fetch('/api/push/key')).json();
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) });
-    await post('/api/push/subscribe', sub);
-    showPush('on');
-    await post('/api/push/test');
-  } catch (err) {
-    showPush('off', err.message);
-  }
+  try { const permission = await Notification.requestPermission(); if (permission !== 'granted') return showPush('off','Notifications were not enabled.'); const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready; const {publicKey} = await request('/api/push/key'); const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBytes(publicKey)}); await request('/api/push/subscribe',sub); showPush('on'); await request('/api/push/test',{}); }
+  catch(err) { showPush('off',err.message); }
 };
-$('pushTest').onclick = async () => {
-  const res = await post('/api/push/test');
-  if (!res.ok) $('pushState').textContent = (await res.json()).error;
-};
-$('pushOff').onclick = async () => {
-  const sub = await currentSubscription();
-  if (sub) {
-    await post('/api/push/unsubscribe', { endpoint: sub.endpoint });
-    await sub.unsubscribe();
-  }
-  showPush('off');
-};
-
-api('/api/state').then(initPush);
-setInterval(() => api('/api/state'), 3000);
-setInterval(() => state && !state.checking && state.lastChecked && ($('status').textContent = state.error || `Checked ${ago(state.lastChecked)}`), 1000);
+$('pushTest').onclick = async () => { try { await request('/api/push/test',{}); toast('Test notification sent'); } catch(err) { $('pushState').textContent = err.message; } };
+$('pushOff').onclick = async () => { try { const sub = await currentSubscription(); if (sub) { await request('/api/push/unsubscribe',{endpoint:sub.endpoint}); await sub.unsubscribe(); } showPush('off'); } catch(err) { $('pushState').textContent = err.message; } };
+window.addEventListener('pagehide',()=>disarm(null));
+refresh();
+setInterval(refresh,3000);
+setInterval(()=>state && render(),1000);
 </script>
 </body>
 </html>

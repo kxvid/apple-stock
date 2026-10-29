@@ -83,6 +83,8 @@ export class AppleStore {
 
   async newSession() {
     await this.context?.close().catch(() => {});
+    this.loadedProductUrl = null;
+    this.loadedAt = 0;
     this.context = await this.browser.newContext({ userAgent: userAgentFor(this.browser.version()), locale: this.locale });
     this.page = await this.context.newPage();
   }
@@ -93,18 +95,28 @@ export class AppleStore {
       throw new Error(`Product page ${this.productUrl} returned ${res?.status()}`);
     }
     this.html = await this.page.content();
+    this.loadedProductUrl = this.productUrl;
+    this.loadedAt = Date.now();
+  }
+
+  // Reuse the already-open storefront between checks. Refresh the catalog
+  // periodically, and immediately when a product/country/session changes.
+  async ensureProductPage() {
+    if (!this.page || this.page.isClosed() || this.loadedProductUrl !== this.productUrl || Date.now() - this.loadedAt >= 300_000) {
+      await this.loadProductPage();
+    }
   }
 
   async fetchPage(product = this.product) {
     const url = this.urlFor(product);
-    const res = await fetch(url, { headers: { 'User-Agent': userAgentFor('130'), 'Accept-Language': this.locale }, redirect: 'manual' });
+    const res = await fetch(url, { headers: { 'User-Agent': userAgentFor('130'), 'Accept-Language': this.locale }, redirect: 'manual', signal: AbortSignal.timeout(20_000) });
     if (res.status !== 200) throw new Error(`${url} returned ${res.status}`);
     return res.text();
   }
 
   async findProductIds() {
     const get = async (path) => {
-      const res = await fetch(`${this.origin}${path}`, { headers: { 'User-Agent': userAgentFor('130') } });
+      const res = await fetch(`${this.origin}${path}`, { headers: { 'User-Agent': userAgentFor('130') }, signal: AbortSignal.timeout(20_000) });
       return res.ok ? res.text() : '';
     };
     const country = this.country === 'us' ? '' : `/${this.country}`;
@@ -144,7 +156,7 @@ export class AppleStore {
     let retries = 0;
     for (;;) {
       const { status, text } = await this.page.evaluate(async (url) => {
-        const r = await fetch(url, { headers: { 'x-aos-ui-fetch-call-1': '1' } });
+        const r = await fetch(url, { headers: { 'x-aos-ui-fetch-call-1': '1' }, signal: AbortSignal.timeout(15_000) });
         return { status: r.status, text: await r.text() };
       }, path);
       if (status === 200) return JSON.parse(text);

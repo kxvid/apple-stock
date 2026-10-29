@@ -4,3 +4,5 @@ node_modules/
 settings.json
 .vapid.json
 subscriptions.json
+artifacts/
+*.log
